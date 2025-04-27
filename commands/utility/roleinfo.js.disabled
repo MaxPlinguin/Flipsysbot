@@ -1,0 +1,127 @@
+const { SlashCommandBuilder, PermissionsBitField } = require('discord.js');
+const { createEmbed } = require('../../utils/embedBuilder');
+const logger = require('../../utils/logger');
+const config = require('../../config');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('roleinfo')
+    .setDescription('Zeigt Informationen über eine Rolle an')
+    .addRoleOption(option => 
+      option.setName('rolle')
+        .setDescription('Die Rolle, über die Informationen angezeigt werden sollen')
+        .setRequired(true)),
+    
+  async execute(interaction) {
+    try {
+      const role = interaction.options.getRole('rolle');
+      
+      if (!role) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Fehler', 
+            'Die angegebene Rolle wurde nicht gefunden.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+      
+      // Berechnet das Datum, an dem die Rolle erstellt wurde
+      const createdTimestamp = role.createdTimestamp;
+      const creationDate = `<t:${Math.floor(createdTimestamp / 1000)}:F>`;
+      const roleAge = calculateDuration(createdTimestamp);
+      
+      // Mitglieder mit dieser Rolle zählen
+      const membersWithRole = role.members.size;
+      
+      // Ermittle Schlüssel-Berechtigungen
+      const permissions = parsePermissions(role.permissions);
+      
+      // Erstelle eine Liste der wichtigsten Berechtigungen
+      let permissionsList = '';
+      
+      if (permissions.length === 0) {
+        permissionsList = 'Keine Berechtigungen';
+      } else {
+        permissionsList = permissions.join('\n');
+      }
+      
+      // Prüfe, ob die Rolle ein @everyone ist
+      const isEveryone = role.id === interaction.guild.id;
+      const roleName = isEveryone ? '@everyone' : role.name;
+      
+      await interaction.reply({ 
+        embeds: [createEmbed(
+          `> Rolleninformation: ${roleName}`, 
+          `**ID:** ${role.id}\n**Farbe:** ${role.hexColor}\n**Position:** ${role.position} (von ${interaction.guild.roles.cache.size})\n**Erstellt am:** ${creationDate} (${roleAge})\n**Mentionierbar:** ${role.mentionable ? 'Ja' : 'Nein'}\n**Getrennt angezeigt:** ${role.hoist ? 'Ja' : 'Nein'}\n**Mitglieder mit dieser Rolle:** ${membersWithRole}\n\n**Wichtige Berechtigungen:**\n${permissionsList}`,
+          role.hexColor !== '#000000' ? role.hexColor : config.colors.primary
+        )]
+      });
+      
+      logger.info(`Roleinfo-Befehl für ${role.name} ausgeführt von ${interaction.user.tag}`);
+    } catch (error) {
+      logger.error(`Fehler beim Ausführen des Roleinfo-Befehls: ${error}`);
+      
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> Fehler', 
+          'Beim Ausführen des Befehls ist ein Fehler aufgetreten. Bitte versuche es später erneut.',
+          config.colors.error
+        )],
+        ephemeral: true 
+      });
+    }
+  },
+};
+
+// Funktion zur Berechnung der Zeitdauer
+function calculateDuration(timestamp) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+  
+  if (years > 0) {
+    return `vor ${years} Jahr${years !== 1 ? 'en' : ''}`;
+  } else if (months > 0) {
+    return `vor ${months} Monat${months !== 1 ? 'en' : ''}`;
+  } else if (days > 0) {
+    return `vor ${days} Tag${days !== 1 ? 'en' : ''}`;
+  } else if (hours > 0) {
+    return `vor ${hours} Stunde${hours !== 1 ? 'n' : ''}`;
+  } else if (minutes > 0) {
+    return `vor ${minutes} Minute${minutes !== 1 ? 'n' : ''}`;
+  } else {
+    return `vor ${seconds} Sekunde${seconds !== 1 ? 'n' : ''}`;
+  }
+}
+
+// Funktion zum Parsen der Berechtigungen
+function parsePermissions(permissions) {
+  const keyPermissions = [
+    { flag: PermissionsBitField.Flags.Administrator, name: '👑 Administrator' },
+    { flag: PermissionsBitField.Flags.BanMembers, name: '🔨 Nutzer bannen' },
+    { flag: PermissionsBitField.Flags.KickMembers, name: '👢 Nutzer kicken' },
+    { flag: PermissionsBitField.Flags.ManageGuild, name: '⚙️ Server verwalten' },
+    { flag: PermissionsBitField.Flags.ManageRoles, name: '🏷️ Rollen verwalten' },
+    { flag: PermissionsBitField.Flags.ManageChannels, name: '📝 Kanäle verwalten' },
+    { flag: PermissionsBitField.Flags.ManageMessages, name: '📨 Nachrichten verwalten' },
+    { flag: PermissionsBitField.Flags.MentionEveryone, name: '📢 @everyone erwähnen' },
+    { flag: PermissionsBitField.Flags.MuteMembers, name: '🔇 Mitglieder stummschalten' },
+    { flag: PermissionsBitField.Flags.DeafenMembers, name: '🔕 Mitglieder taub schalten' },
+    { flag: PermissionsBitField.Flags.MoveMembers, name: '🚶 Mitglieder verschieben' },
+    { flag: PermissionsBitField.Flags.ViewAuditLog, name: '📋 Audit-Log einsehen' },
+    { flag: PermissionsBitField.Flags.ManageWebhooks, name: '🌐 Webhooks verwalten' },
+    { flag: PermissionsBitField.Flags.ManageEmojisAndStickers, name: '😄 Emojis verwalten' }
+  ];
+  
+  return keyPermissions
+    .filter(perm => permissions.has(perm.flag))
+    .map(perm => perm.name);
+}

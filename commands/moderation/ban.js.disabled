@@ -1,0 +1,102 @@
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { checkPermissions } = require('../../utils/permissions');
+const { createEmbed } = require('../../utils/embedBuilder');
+const logger = require('../../utils/logger');
+const config = require('../../config');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('ban')
+    .setDescription('Bans a user from the server')
+    .addUserOption(option => 
+      option.setName('user')
+        .setDescription('The user to ban')
+        .setRequired(true))
+    .addStringOption(option => 
+      option.setName('reason')
+        .setDescription('The reason for banning')
+        .setRequired(false))
+    .addIntegerOption(option => 
+      option.setName('days')
+        .setDescription('Number of days of messages to delete (0-7)')
+        .setMinValue(0)
+        .setMaxValue(7)
+        .setRequired(false))
+    .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+    
+  async execute(interaction) {
+    try {
+      // Check if user has permission to ban
+      if (!await checkPermissions(interaction.member, 'BAN_MEMBERS')) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Permission Denied', 
+            'You do not have permission to use this command.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+
+      const targetUser = interaction.options.getUser('user');
+      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+      
+      // If the user is in the server, check if they can be banned
+      if (targetMember && !targetMember.bannable) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Ban Failed', 
+            'I cannot ban this user. They may have higher permissions than me.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+
+      const reason = interaction.options.getString('reason') || 'No reason provided';
+      const days = interaction.options.getInteger('days') || 0;
+      
+      // Attempt to ban the user
+      await interaction.guild.members.ban(targetUser, { 
+        deleteMessageDays: days,
+        reason: reason
+      });
+      
+      // Log the ban action
+      const logChannel = interaction.guild.channels.cache.get(config.logChannelId);
+      if (logChannel) {
+        logChannel.send({
+          embeds: [createEmbed(
+            '> User Banned',
+            `**User:** ${targetUser.tag} (${targetUser.id})\n**Reason:** ${reason}\n**Message Deletion:** ${days} days\n**Moderator:** ${interaction.user.tag}`,
+            config.colors.accent
+          )]
+        });
+      }
+      
+      logger.info(`${interaction.user.tag} banned ${targetUser.tag} for: ${reason}`);
+      
+      // Confirm the ban to the user who issued the command
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> User Banned', 
+          `Successfully banned ${targetUser.tag}.\n**Reason:** ${reason}\n**Message Deletion:** ${days} days`,
+          config.colors.success
+        )],
+        ephemeral: true 
+      });
+      
+    } catch (error) {
+      logger.error(`Error executing ban command: ${error}`);
+      
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> Command Failed', 
+          'This command could not be executed. Please try again later. If the problem persists, please contact an admin.',
+          config.colors.error
+        )],
+        ephemeral: true 
+      });
+    }
+  },
+};

@@ -1,0 +1,103 @@
+const { SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
+const { checkPermissions } = require('../../utils/permissions');
+const { createEmbed } = require('../../utils/embedBuilder');
+const logger = require('../../utils/logger');
+const config = require('../../config');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('kick')
+    .setDescription('Kicks a user from the server')
+    .addUserOption(option => 
+      option.setName('user')
+        .setDescription('The user to kick')
+        .setRequired(true))
+    .addStringOption(option => 
+      option.setName('reason')
+        .setDescription('The reason for kicking')
+        .setRequired(false))
+    .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+    
+  async execute(interaction) {
+    try {
+      // Check if user has permission to kick
+      if (!await checkPermissions(interaction.member, 'KICK_MEMBERS')) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Permission Denied', 
+            'You do not have permission to use this command.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+
+      const targetUser = interaction.options.getUser('user');
+      const targetMember = await interaction.guild.members.fetch(targetUser.id).catch(() => null);
+      
+      if (!targetMember) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Error', 
+            'This user is not in the server.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+
+      // Check if the targeted user is kickable
+      if (!targetMember.kickable) {
+        return interaction.reply({ 
+          embeds: [createEmbed(
+            '> Kick Failed', 
+            'I cannot kick this user. They may have higher permissions than me.',
+            config.colors.error
+          )],
+          ephemeral: true 
+        });
+      }
+
+      const reason = interaction.options.getString('reason') || 'No reason provided';
+      
+      // Attempt to kick the user
+      await targetMember.kick(reason);
+      
+      // Log the kick action
+      const logChannel = interaction.guild.channels.cache.get(config.logChannelId);
+      if (logChannel) {
+        logChannel.send({
+          embeds: [createEmbed(
+            '> User Kicked',
+            `**User:** ${targetUser.tag} (${targetUser.id})\n**Reason:** ${reason}\n**Moderator:** ${interaction.user.tag}`,
+            config.colors.accent
+          )]
+        });
+      }
+      
+      logger.info(`${interaction.user.tag} kicked ${targetUser.tag} for: ${reason}`);
+      
+      // Confirm the kick to the user who issued the command
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> User Kicked', 
+          `Successfully kicked ${targetUser.tag}.\n**Reason:** ${reason}`,
+          config.colors.success
+        )],
+        ephemeral: true 
+      });
+      
+    } catch (error) {
+      logger.error(`Error executing kick command: ${error}`);
+      
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> Command Failed', 
+          'This command could not be executed. Please try again later. If the problem persists, please contact an admin.',
+          config.colors.error
+        )],
+        ephemeral: true 
+      });
+    }
+  },
+};

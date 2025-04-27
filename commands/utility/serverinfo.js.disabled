@@ -1,0 +1,89 @@
+const { SlashCommandBuilder } = require('discord.js');
+const { createEmbed } = require('../../utils/embedBuilder');
+const logger = require('../../utils/logger');
+const config = require('../../config');
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('serverinfo')
+    .setDescription('Zeigt Informationen über den Server an'),
+    
+  async execute(interaction) {
+    try {
+      const { guild } = interaction;
+      
+      // Aktualisiere die Serverdaten für genaue Informationen
+      await guild.fetch();
+      
+      // Berechne die Anzahl der Bot-Mitglieder
+      const totalMembers = guild.memberCount;
+      const botCount = guild.members.cache.filter(member => member.user.bot).size;
+      const humanCount = totalMembers - botCount;
+      
+      // Sammle Kanal-Statistiken
+      const textChannels = guild.channels.cache.filter(c => c.type === 0).size; // Type 0 ist TextChannel
+      const voiceChannels = guild.channels.cache.filter(c => c.type === 2).size; // Type 2 ist VoiceChannel
+      const categoryChannels = guild.channels.cache.filter(c => c.type === 4).size; // Type 4 ist CategoryChannel
+      
+      // Berechne Servererstellungsdatum
+      const createdTimestamp = guild.createdTimestamp;
+      const creationDate = `<t:${Math.floor(createdTimestamp / 1000)}:F>`;
+      const serverAge = calculateDuration(createdTimestamp);
+      
+      // Sammle Rollen-Informationen
+      const roles = guild.roles.cache.size - 1; // -1 für @everyone
+      
+      // Erstelle das Embed
+      await interaction.reply({ 
+        embeds: [createEmbed(
+          `> Serverinformation: ${guild.name}`, 
+          `**Besitzer:** <@${guild.ownerId}>\n**Erstellt am:** ${creationDate} (${serverAge})\n**Server-ID:** ${guild.id}\n\n**Mitglieder:** ${totalMembers} Gesamt\n**Menschliche Nutzer:** ${humanCount}\n**Bots:** ${botCount}\n\n**Kategorien:** ${categoryChannels}\n**Text-Kanäle:** ${textChannels}\n**Sprachkanäle:** ${voiceChannels}\n\n**Rollen:** ${roles}\n**Boost-Level:** ${guild.premiumTier}\n**Boost-Anzahl:** ${guild.premiumSubscriptionCount}`,
+          config.colors.primary,
+          [],
+          { text: `Angefordert von ${interaction.user.tag}` },
+          guild.iconURL({ dynamic: true })
+        )]
+      });
+      
+      logger.info(`Serverinfo-Befehl ausgeführt von ${interaction.user.tag}`);
+    } catch (error) {
+      logger.error(`Fehler beim Ausführen des Serverinfo-Befehls: ${error}`);
+      
+      return interaction.reply({ 
+        embeds: [createEmbed(
+          '> Fehler', 
+          'Beim Ausführen des Befehls ist ein Fehler aufgetreten. Bitte versuche es später erneut.',
+          config.colors.error
+        )],
+        ephemeral: true 
+      });
+    }
+  },
+};
+
+// Funktion zur Berechnung der Zeitdauer
+function calculateDuration(timestamp) {
+  const now = Date.now();
+  const diff = now - timestamp;
+  
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+  
+  if (years > 0) {
+    return `vor ${years} Jahr${years !== 1 ? 'en' : ''}`;
+  } else if (months > 0) {
+    return `vor ${months} Monat${months !== 1 ? 'en' : ''}`;
+  } else if (days > 0) {
+    return `vor ${days} Tag${days !== 1 ? 'en' : ''}`;
+  } else if (hours > 0) {
+    return `vor ${hours} Stunde${hours !== 1 ? 'n' : ''}`;
+  } else if (minutes > 0) {
+    return `vor ${minutes} Minute${minutes !== 1 ? 'n' : ''}`;
+  } else {
+    return `vor ${seconds} Sekunde${seconds !== 1 ? 'n' : ''}`;
+  }
+}

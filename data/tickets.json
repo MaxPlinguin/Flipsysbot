@@ -1,0 +1,58 @@
+{
+  "1353077718346104852": {
+    "channelId": "1353077718346104852",
+    "userId": "712389221926567967",
+    "ingameName": "dfg",
+    "title": "dssadfhg",
+    "category": "Other",
+    "description": "fgh",
+    "createdAt": "2025-03-22T18:47:47.234Z",
+    "status": "closed",
+    "closedAt": "2025-03-22T18:47:53.934Z",
+    "closedBy": "712389221926567967",
+    "closeReason": "No reason provided"
+  },
+  "1353309855183671337": {
+    "channelId": "1353309855183671337",
+    "userId": "712389221926567967",
+    "ingameName": "Test",
+    "title": "dsfghjkk",
+    "category": "Other",
+    "description": "dsfghjklö",
+    "createdAt": "2025-03-23T10:10:12.915Z",
+    "status": "open"
+  },
+  "1353310686033219707": {
+    "channelId": "1353310686033219707",
+    "userId": "1094199954907611186",
+    "ingameName": "Flipsyy",
+    "title": "Braucht man nd dafür hat man die Beschreibung",
+    "category": "Other",
+    "description": "Geil bist der Beste",
+    "createdAt": "2025-03-23T10:13:31.571Z",
+    "status": "open"
+  },
+  "1363105904223846462": {
+    "channelId": "1363105904223846462",
+    "userId": "712389221926567967",
+    "ingameName": "fghk-öä",
+    "title": "fdeghjkö",
+    "category": "Support",
+    "description": "jhlöä64df5hnhg564jfghdfhdfh",
+    "createdAt": "2025-04-19T10:56:13.200Z",
+    "status": "closed",
+    "closedAt": "2025-04-19T10:58:05.662Z",
+    "closedBy": "712389221926567967",
+    "closeReason": "Kein Grund angegeben"
+  },
+  "1364656042654564483": {
+    "channelId": "1364656042654564483",
+    "userId": "1255087698901991424",
+    "ingameName": "Upseatdear",
+    "title": "Server Whitlist",
+    "category": "Support",
+    "description": "Wie kann ich im Stream mitspielen will auf den Server!",
+    "createdAt": "2025-04-23T17:35:55.153Z",
+    "status": "open"
+  }
+}

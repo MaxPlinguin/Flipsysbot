@@ -1,0 +1,171 @@
+const { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, EmbedBuilder } = require('discord.js');
+const { createEmbed } = require('../../utils/embedBuilder');
+const config = require('../../config');
+
+// Store player data (in production, use a database)
+const players = new Map();
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('hack')
+    .setDescription('Spiele das Hacker-Spiel')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('start')
+        .setDescription('Starte das Hacker-Spiel')),
+
+  async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
+    const userId = interaction.user.id;
+
+    // Initialize player data if not exists
+    if (!players.has(userId)) {
+      players.set(userId, {
+        credits: 0,
+        wantedLevel: 0,
+        heists: 0
+      });
+    }
+
+    const player = players.get(userId);
+
+    if (subcommand === 'start') {
+      // Create buttons
+      const hackButton = new ButtonBuilder()
+        .setCustomId('hack_heist')
+        .setLabel('💻 Hack durchführen')
+        .setStyle(ButtonStyle.Danger);
+
+      const hideButton = new ButtonBuilder()
+        .setCustomId('hack_hide')
+        .setLabel('🛡️ Verstecken')
+        .setStyle(ButtonStyle.Secondary);
+
+      const statsButton = new ButtonBuilder()
+        .setCustomId('hack_stats')
+        .setLabel('📊 Statistiken')
+        .setStyle(ButtonStyle.Primary);
+
+      const leaderboardButton = new ButtonBuilder()
+        .setCustomId('hack_leaderboard')
+        .setLabel('🏆 Leaderboard')
+        .setStyle(ButtonStyle.Success);
+
+
+      const row = new ActionRowBuilder()
+        .addComponents(hackButton, hideButton, statsButton, leaderboardButton);
+
+      // Send message with status and buttons
+      const initialMessage = await interaction.reply({
+        embeds: [createEmbed(
+          '🎮 Hacker Status',
+          `Credits: ${player.credits}\nFahndungslevel: ${player.wantedLevel}\nErfolgreiche Hacks: ${player.heists}`,
+          config.colors.primary
+        )],
+        components: [row],
+        fetchReply: true
+      });
+
+
+      const collector = interaction.channel.createMessageComponentCollector({
+          filter: i => i.user.id === interaction.user.id,
+          time: 15000
+      });
+
+      collector.on('collect', async i => {
+        await i.deferUpdate();
+        switch (i.customId) {
+          case 'hack_heist': {
+            const success = Math.random() > (player.wantedLevel / 10);
+            const credits = Math.floor(Math.random() * 1000) + 500;
+
+            if (success) {
+              player.credits += credits;
+              player.wantedLevel += 1;
+              player.heists += 1;
+
+              await i.editReply({
+                embeds: [createEmbed(
+                  '💻 Heist erfolgreich!',
+                  `Du hast ${credits} Credits erbeutet!\nNeues Fahndungslevel: ${player.wantedLevel}`,
+                  config.colors.success
+                )],
+                components: []
+              });
+            } else {
+              player.wantedLevel += 2;
+              await i.editReply({
+                embeds: [createEmbed(
+                  '🚨 Heist fehlgeschlagen!',
+                  `Die Behörden sind dir auf der Spur!\nNeues Fahndungslevel: ${player.wantedLevel}`,
+                  config.colors.error
+                )],
+                components: []
+              });
+            }
+            break;
+          }
+          case 'hack_hide': {
+            if (player.wantedLevel > 0) {
+              player.wantedLevel = Math.max(0, player.wantedLevel - 2);
+              await i.editReply({
+                embeds: [createEmbed(
+                  '🛡️ Versteckt',
+                  `Du hast dich erfolgreich versteckt.\nNeues Fahndungslevel: ${player.wantedLevel}`,
+                  config.colors.primary
+                )],
+                components: []
+              });
+            } else {
+              await i.editReply({
+                embeds: [createEmbed(
+                  '🛡️ Verstecken nicht nötig',
+                  'Du wirst aktuell nicht gesucht.',
+                  config.colors.secondary
+                )],
+                components: []
+              });
+            }
+            break;
+          }
+          case 'hack_stats': {
+            await i.editReply({
+              embeds: [createEmbed(
+                '📊 Hacker-Statistiken',
+                `Credits: ${player.credits}\nFahndungslevel: ${player.wantedLevel}\nErfolgreiche Heists: ${player.heists}`,
+                config.colors.primary
+              )],
+              components: []
+            });
+            break;
+          }
+          case 'hack_leaderboard': {
+            const sortedPlayers = [...players.entries()]
+              .sort(([, a], [, b]) => b.credits - a.credits)
+              .slice(0, 10);
+
+            const leaderboardText = await Promise.all(sortedPlayers.map(async ([id, data], index) => {
+              const user = await interaction.client.users.fetch(id);
+              return `${index + 1}. ${user.username}: ${data.credits} Credits`;
+            }));
+
+            await i.editReply({
+              embeds: [createEmbed(
+                '🏆 Hacker-Leaderboard',
+                leaderboardText.join('\n') || 'Noch keine Einträge',
+                config.colors.primary
+              )],
+              components: []
+            });
+            break;
+          }
+        }
+      });
+
+      collector.on('end', collected => {
+        if (collected.size === 0) return;
+        interaction.editReply({components: []});
+      });
+    }
+  },
+};

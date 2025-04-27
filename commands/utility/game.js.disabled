@@ -1,0 +1,64 @@
+
+const { SlashCommandBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require('discord.js');
+const { createEmbed } = require('../../utils/embedBuilder');
+const config = require('../../config');
+
+// Store player data (in production, use a database)
+const players = new Map();
+
+// Game symbols for the hack minigame
+const SYMBOLS = ['⬆️', '⬇️', '⬅️', '➡️'];
+
+module.exports = {
+  data: new SlashCommandBuilder()
+    .setName('game')
+    .setDescription('Spiele verschiedene Minispiele')
+    .addSubcommand(subcommand =>
+      subcommand
+        .setName('hack')
+        .setDescription('Starte das Hacker-Spiel')),
+
+  players,  // Export players Map for other files to use
+
+  async execute(interaction) {
+    const subcommand = interaction.options.getSubcommand();
+    
+    if (subcommand === 'hack') {
+      const userId = interaction.user.id;
+
+      // Initialize player data if not exists
+      if (!players.has(userId)) {
+        players.set(userId, {
+          credits: 1000,
+          wantedLevel: 0,
+          successfulHacks: 0,
+          failedHacks: 0
+        });
+      }
+
+      const player = players.get(userId);
+      
+      const hackButton = new ButtonBuilder()
+        .setCustomId('hack_action')
+        .setLabel('💻 Hacken')
+        .setStyle(ButtonStyle.Danger);
+
+      const hideButton = new ButtonBuilder()
+        .setCustomId('hide_action')
+        .setLabel('🕵️ Verstecken')
+        .setStyle(ButtonStyle.Secondary);
+
+      const row = new ActionRowBuilder().addComponents(hackButton, hideButton);
+
+      const stars = '⭐'.repeat(Math.min(5, player.wantedLevel));
+      
+      const embed = createEmbed(
+        '🌐 CyberHeist',
+        `**Credits:** ${player.credits}\n**Fahndungslevel:** ${stars}\n**Erfolgreiche Hacks:** ${player.successfulHacks} | **Gescheiterte Hacks:** ${player.failedHacks}`,
+        config.colors.primary
+      );
+
+      await interaction.reply({ embeds: [embed], components: [row] });
+    }
+  },
+};
